@@ -98,10 +98,17 @@ class Livefyre_Conversation {
         return array('collectionMeta' => $jwtString, 'checksum' => $checksum);
     }
     
-    public function to_initjs_v3( $el = false, $config = null, $backplane = false ) {
+    public function to_initjs_v3( $el = false, $config = null ) {
         // We have to build this string of JS in a weird way because we conditionally include
         // direct JS references, which isn't possible with json_encode
         $onload = '';
+        $strings = '';
+        if ( is_array($el) ) {
+            // This parameter can optionally be the $config array, must include key 'el'
+            $config = $el;
+        } elseif ( is_string($el) && is_array($config) ) {
+            $config['el'] = $el;
+        }
         if ( is_string($config) or $config == null ) {
             $delegate = $config;
         } else {
@@ -112,9 +119,15 @@ class Livefyre_Conversation {
             }
             if ( isset( $config['onload'] ) ) {
                 $onload = ', ' . $config['onload'];
+                unset( $config['onload'] );
+            }
+            if ( isset( $config['strings'] ) && $config['strings'] != '' ) {
+                $strings = ', strings: ' . $config['strings'];
+                $strings_community = $config['strings'];
+                unset( $config['strings'] );
             }
         }
-        if (empty($el)) {
+        if ( !isset( $config['el'] ) ) {
             $error = 'Unable to initialize Livefyre - you must specify a target element for the interface as required parameter \'el\' in JavaScript or when calling $conversation->to_initjs_v3()';
             return '<!-- ' . $error . ' --> <script type="text/javascript">console.log("' . $error . '")</script>';
         }
@@ -122,14 +135,11 @@ class Livefyre_Conversation {
         $site = $article->get_site();
         $domain = $site->get_domain();
         $network_name = $domain->get_host();
-        $config = $this->collection_meta();
-        $config['siteId'] = $site->get_id();
-        $config['articleId'] = $article->get_id();
-        $config['el'] = $el;
-        if ( $backplane ) {
-            $add_backplane = 'if ( typeof(Backplane) != \'undefined\' ) { lf_config.backplane = Backplane; };';
-        } else {
-            $add_backplane = '';
+        $js_config = $this->collection_meta();
+        $js_config['siteId'] = $site->get_id();
+        $js_config['articleId'] = $article->get_id();
+        foreach ( $config as $k => $v ) {
+            $js_config[$k] = $v;
         }
         $delegate_str = '';
         if ( $delegate ) {
@@ -137,10 +147,13 @@ class Livefyre_Conversation {
         }
         $fyre_config = '{}';
         if ( $network_name != LF_DEFAULT_PROFILE_DOMAIN ) {
-            $fyre_config = '{"network": "' . $network_name . '"' . $delegate_str . '}';
+            $fyre_config = '{"network": "' . $network_name . '"' . $delegate_str . $strings . '}';
+        }
+        elseif ( $network_name == LF_DEFAULT_PROFILE_DOMAIN && $strings ) {
+            $fyre_config = '{ strings: ' . $strings_community . '}';
         }
         return '<script type="text/javascript">' .
-                'var lf_config = ' . json_encode( array($config) ) . ';' . $add_backplane .
+                'var lf_config = ' . json_encode( array($js_config) ) . ';' . 
                 'var conv = fyre.conv.load(' . $fyre_config . ', lf_config' . $onload . ');' .
                 '</script>';
     }
