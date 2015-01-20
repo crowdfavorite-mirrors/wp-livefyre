@@ -107,8 +107,8 @@ class Livefyre_Admin {
         register_setting( $settings_section, 'livefyre_environment' );
         
         if( $this->returned_from_setup() ) {
-            $this->ext->update_option( "livefyre_site_id", sanitize_text_field( $_GET["site_id"] ) );
-            $this->ext->update_option( "livefyre_site_key", sanitize_text_field( $_GET["secretkey"] ) );
+            $this->ext->update_option( "livefyre_site_id", $_GET["site_id"] );
+            $this->ext->update_option( "livefyre_site_key", $_GET["secretkey"] );
         }
         
         add_settings_section('lf_site_settings',
